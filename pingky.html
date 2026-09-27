@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Central Air Conditioning — Professional Interactive Simulation</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#071018;color:#eaf2f7;font-family:Inter,Segoe UI,Arial,sans-serif}
+.wrap{max-width:1280px;margin:auto;padding:18px}
+.top{display:flex;justify-content:space-between;align-items:end;gap:15px;margin-bottom:14px}
+h1{font-size:34px;margin:0}.sub{color:#93a6b4;margin-top:5px}
+.toolbar{display:flex;gap:9px;flex-wrap:wrap;margin-bottom:12px}
+button,select{background:#14212b;color:#eef7fb;border:1px solid #344856;border-radius:9px;padding:10px 14px;font-weight:700;cursor:pointer}
+button:hover,select:hover{border-color:#6e8b9b}
+#power.on{background:#08744c;border-color:#26d99a}
+#power.off{background:#72252b;border-color:#d65c67}
+#step{background:#213448}
+.status{margin-left:auto;padding:10px 13px;border-radius:9px;background:#101b24;border:1px solid #2a3b47}
+.status b{color:#ff6873}.status.on b{color:#38dfa2}
+.card{background:#0c151d;border:1px solid #243540;border-radius:15px;overflow:hidden;box-shadow:0 12px 35px #0007}
+svg{display:block;width:100%;height:auto;min-height:620px;background:radial-gradient(circle at 50% 45%,#102330 0,#081118 48%,#050a0e 100%)}
+.eq{fill:#162b37;stroke:#66808d;stroke-width:2}.eq2{fill:#111e27;stroke:#506875;stroke-width:2}
+.zone{fill:#162a34;stroke:#52717e;stroke-width:2}
+.title{fill:#f3fbff;font-size:18px;font-weight:800;text-anchor:middle}
+.label{fill:#a9bdc8;font-size:13px;text-anchor:middle}
+.tiny{fill:#7f98a5;font-size:11px;text-anchor:middle}
+.pipe{fill:none;stroke:#344854;stroke-width:10;stroke-linecap:round;stroke-linejoin:round}
+.pipe.hot{stroke:#9b4e3e}.pipe.cool{stroke:#327aa2}
+.flow{fill:none;stroke:#47d8ff;stroke-width:5;stroke-linecap:round;stroke-dasharray:14 13;opacity:0}
+.flow.active{opacity:1;animation:flow 1.1s linear infinite}
+.returnflow{stroke:#aab7c0}.waterflow{stroke:#4ed5ff}.hotflow{stroke:#ff8b55}
+@keyframes flow{to{stroke-dashoffset:-54}}
+.arrow{fill:#5e7480;opacity:.5}.arrow.active{fill:#62e1ff;opacity:1}
+.roomair{fill:#76dfff;opacity:0}.roomair.active{opacity:.9;animation:air 1.4s linear infinite}
+@keyframes air{50%{opacity:.25}}
+.fan{fill:#607986;transform-box:fill-box;transform-origin:center}.fan.spin{animation:spin .65s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.gaugeBg{fill:#091117;stroke:#344a55;stroke-width:2}.gaugeText{fill:#dff7ff;text-anchor:middle;font-size:18px;font-weight:800}
+.tag{fill:#0d1b23;stroke:#304a57}.tagtext{fill:#8faab8;font-size:11px;text-anchor:middle}
+#message{padding:13px 16px;color:#b8c9d2;font-size:14px;line-height:1.45;border-top:1px solid #20313c}
+.metrics{display:grid;grid-template-columns:repeat(6,1fr);gap:9px;margin-top:12px}
+.metric{background:#0d171f;border:1px solid #263944;border-radius:10px;padding:10px}.metric small{color:#78909d}.metric b{display:block;font-size:18px;margin-top:3px}
+@media(max-width:850px){.metrics{grid-template-columns:repeat(3,1fr)}.top{display:block}.status{margin-top:10px}.status{display:inline-block}svg{min-height:520px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div><h1>Central Air Conditioning System</h1><div class="sub">Professional interactive schematic • centralized cooling • multi-zone air distribution • return-air loop</div></div>
+  </div>
+
+  <div class="toolbar">
+    <button id="power" class="off" onclick="toggle()">⏻ SYSTEM OFF</button>
+    <button id="step" onclick="stepFlow()">▶ STEP-BY-STEP FLOW</button>
+    <select id="mode" onchange="setMode()"><option value="cool">❄ Cooling Mode</option><option value="heat">♨ Heating Mode</option></select>
+    <button onclick="resetAll()">↻ RESET</button>
+    <div id="status" class="status">Status: <b>OFF</b></div>
+  </div>
+
+  <div class="card">
+  <svg viewBox="0 0 1200 650">
+    <!-- RETURN AIR LOOP (Corrected continuous flow path back to AHU) -->
+    <path class="pipe" d="M1135 300 H1170 V560 H670 V395"/>
+    <path id="retFlow" class="flow returnflow" d="M1135 300 H1170 V560 H670 V395"/>
+    <polygon id="retArrow" class="arrow" points="920,550 900,560 920,570"/>
+
+    <!-- CHILLED/HOT WATER LOOP -->
+    <path class="pipe cool" d="M590 145 H760 V220"/>
+    <path class="pipe cool" d="M760 330 V390 H590"/>
+    <path id="water1" class="flow waterflow" d="M590 145 H760 V220"/>
+    <path id="water2" class="flow waterflow" d="M760 330 V390 H590"/>
+
+    <!-- SUPPLY AIR DUCT -->
+    <path class="pipe" d="M880 275 H1030 V155"/>
+    <path class="pipe" d="M1030 155 H1135"/>
+    <path id="supFlow" class="flow" d="M880 275 H1030 V155 H1135"/>
+    <polygon id="supArrow" class="arrow" points="1000,265 1020,275 1000,285"/>
+
+    <!-- ZONE TO RETURN CONNECTION -->
+    <path class="pipe" d="M1135 300 V300"/>
+    <path id="roomReturn" class="flow returnflow" d="M1135 300 H1170"/>
+    <polygon id="rrArrow" class="arrow" points="1150,290 1165,300 1150,310"/>
+
+    <!-- CENTRAL PLANT -->
+    <rect class="eq" x="415" y="55" width="175" height="150" rx="18"/>
+    <text class="title" x="502" y="86">CENTRAL PLANT</text>
+    <text class="label" x="502" y="108">CHILLER / BOILER</text>
+    <rect class="eq2" x="438" y="125" width="130" height="50" rx="8"/>
+    <circle id="compressor" cx="465" cy="150" r="15" fill="#405865"/>
+    <text class="tiny" x="515" y="148">Compressor</text>
+    <text class="tiny" x="515" y="164">Heat source</text>
+    <text id="plantMode" class="tagtext" x="502" y="194">CHILLED WATER: 7°C</text>
+
+    <!-- PUMP -->
+    <circle class="eq" cx="760" cy="275" r="54"/>
+    <circle id="pump" cx="760" cy="275" r="22" fill="none" stroke="#708c99" stroke-width="7"/>
+    <line x1="760" y1="253" x2="760" y2="297" stroke="#708c99" stroke-width="5"/>
+    <line x1="738" y1="275" x2="782" y2="275" stroke="#708c99" stroke-width="5"/>
+    <text class="title" x="760" y="350">PUMP</text>
+    <text class="tiny" x="760" y="366">Circulates conditioned medium</text>
+
+    <!-- AHU -->
+    <rect class="eq" x="590" y="215" width="290" height="180" rx="18"/>
+    <text class="title" x="735" y="242">AIR HANDLING UNIT (AHU)</text>
+    <rect class="eq2" x="615" y="260" width="62" height="92" rx="8"/>
+    <text class="tiny" x="646" y="284">FILTER</text>
+    <line x1="630" y1="300" x2="662" y2="315" stroke="#819aa5" stroke-width="4"/>
+    <line x1="630" y1="315" x2="662" y2="330" stroke="#819aa5" stroke-width="4"/>
+    <rect class="eq2" x="690" y="260" width="70" height="92" rx="8"/>
+    <text class="tiny" x="725" y="282">COIL</text>
+    <path id="coil" d="M705 300 q10 -20 20 0 t20 0" fill="none" stroke="#5edaff" stroke-width="4"/>
+    <rect class="eq2" x="775" y="260" width="80" height="92" rx="8"/>
+    <text class="tiny" x="815" y="282">FAN</text>
+    <circle id="fan" class="fan" cx="815" cy="320" r="23" fill="none" stroke="#7c98a4" stroke-width="4"/>
+    <path d="M815 300 l7 20 -7 20 -7 -20z" fill="#7c98a4"/>
+    <text class="tiny" x="735" y="382">Filters → conditions → circulates air</text>
+
+    <!-- ZONES -->
+    <rect class="zone" x="930" y="70" width="220" height="105" rx="16"/>
+    <text class="title" x="1040" y="100">ZONE 01</text><text class="label" x="1040" y="122">Office / Classroom</text>
+    <text id="z1" class="gaugeText" x="1040" y="153">30°C</text>
+
+    <rect class="zone" x="930" y="205" width="220" height="105" rx="16"/>
+    <text class="title" x="1040" y="235">ZONE 02</text><text class="label" x="1040" y="257">Room / Hall</text>
+    <text id="z2" class="gaugeText" x="1040" y="288">30°C</text>
+
+    <!-- SUPPLY / RETURN LABELS -->
+    <rect class="tag" x="995" y="180" width="90" height="25" rx="8"/>
+    <text class="tagtext" x="1040" y="197">SUPPLY AIR</text>
+    <rect class="tag" x="995" y="325" width="90" height="25" rx="8"/>
+    <text class="tagtext" x="1040" y="342">RETURN AIR</text>
+
+    <!-- FLOW PARTICLES -->
+    <g id="particles">
+      <circle class="roomair" cx="1040" cy="185" r="5"/><circle class="roomair" cx="1040" cy="320" r="5"/>
+      <circle class="roomair" cx="1120" cy="185" r="5"/><circle class="roomair" cx="1120" cy="320" r="5"/>
+    </g>
+
+    <!-- SIDE INFO -->
+    <rect class="tag" x="45" y="70" width="285" height="120" rx="14"/>
+    <text class="title" x="187" y="100">WHAT THE SYSTEM DOES</text>
+    <text class="label" x="187" y="126">1. Centralized conditioning</text>
+    <text class="label" x="187" y="149">2. Multi-zone distribution</text>
+    <text class="label" x="187" y="172">3. Return-air recirculation</text>
+
+    <rect class="tag" x="45" y="230" width="285" height="125" rx="14"/>
+    <text class="title" x="187" y="260">ENERGY / CONTROL</text>
+    <text class="label" x="187" y="286">Central plant = main capacity</text>
+    <text class="label" x="187" y="309">AHU = air treatment</text>
+    <text class="label" x="187" y="332">BMS = monitoring & control</text>
+
+    <rect class="tag" x="45" y="390" width="285" height="105" rx="14"/>
+    <text class="title" x="187" y="420">FLOW SEQUENCE</text>
+    <text class="label" x="187" y="447">Plant → Pump → AHU</text>
+    <text class="label" x="187" y="470">→ Duct → Zones → Return</text>
+
+    <!-- temperature gauges -->
+    <circle class="gaugeBg" cx="360" cy="545" r="45"/>
+    <text id="supplyT" class="gaugeText" x="360" y="552">30°C</text>
+    <text class="tiny" x="360" y="605">SUPPLY</text>
+    <circle class="gaugeBg" cx="495" cy="545" r="45"/>
+    <text id="returnT" class="gaugeText" x="495" y="552">30°C</text>
+    <text class="tiny" x="495" y="605">RETURN</text>
+    <circle class="gaugeBg" cx="630" cy="545" r="45"/>
+    <text id="flowRate" class="gaugeText" x="630" y="552">0</text>
+    <text class="tiny" x="630" y="605">FLOW %</text>
+  </svg>
+  <div id="message"><strong>Demo:</strong> Press <b>SYSTEM ON</b>. The animated arrows show the correct sequence of central conditioning, AHU treatment, supply-air distribution and return-air circulation.</div>
+  </div>
+
+  <div class="metrics">
+    <div class="metric"><small>System</small><b id="m1">OFF</b></div>
+    <div class="metric"><small>Mode</small><b id="m2">Cooling</b></div>
+    <div class="metric"><small>Central medium</small><b id="m3">7°C</b></div>
+    <div class="metric"><small>Supply air</small><b id="m4">30°C</b></div>
+    <div class="metric"><small>Zone temperature</small><b id="m5">30°C</b></div>
+    <div class="metric"><small>Airflow</small><b id="m6">0%</b></div>
+  </div>
+</div>
+
+<script>
+let on=false, mode='cool', temp=30, step=0, interval=null, stepTimer=null;
+const flowIds=['retFlow','water1','water2','supFlow','roomReturn'];
+const arrowIds=['retArrow','supArrow','rrArrow'];
+
+function setMode(){
+ mode=document.getElementById('mode').value;
+ updateText();
+}
+function toggle(){on=!on; if(on) step=0; update();}
+function resetAll(){
+ on=false; mode='cool'; temp=30; step=0;
+ document.getElementById('mode').value='cool';
+ clearInterval(interval); clearInterval(stepTimer); update();
+}
+function setActive(active){
+ flowIds.forEach(id=>document.getElementById(id).classList.toggle('active',active));
+ arrowIds.forEach(id=>document.getElementById(id).classList.toggle('active',active));
+ document.getElementById('fan').classList.toggle('spin',active);
+ document.getElementById('compressor').setAttribute('fill',active?'#4fdcff':'#405865');
+ document.getElementById('pump').style.stroke=active?'#4fdcff':'#708c99';
+ document.querySelectorAll('.roomair').forEach(x=>x.classList.toggle('active',active));
+}
+function updateText(){
+ const cool=mode==='cool';
+ document.getElementById('m2').textContent=cool?'Cooling':'Heating';
+ document.getElementById('m3').textContent=cool?'7°C':'55°C';
+ document.getElementById('plantMode').textContent=cool?'CHILLED WATER: 7°C':'HOT WATER: 55°C';
+ document.getElementById('supplyT').textContent=(cool?18:38)+'°C';
+ document.getElementById('returnT').textContent=temp.toFixed(1)+'°C';
+}
+function update(){
+ const btn=document.getElementById('power');
+ btn.textContent=on?'⏻ SYSTEM ON':'⏻ SYSTEM OFF';
+ btn.className=on?'on':'off';
+ document.getElementById('status').className='status '+(on?'on':'');
+ document.getElementById('status').innerHTML='Status: <b>'+(on?'ON':'OFF')+'</b>';
+ setActive(on);
+ updateText();
+ document.getElementById('m1').textContent=on?'ON':'OFF';
+ document.getElementById('m4').textContent=(mode==='cool'?18:38)+'°C';
+ document.getElementById('m5').textContent=temp.toFixed(1)+'°C';
+ document.getElementById('m6').textContent=on?'100%':'0%';
+ document.getElementById('flowRate').textContent=on?'100':'0';
+ if(on){
+   clearInterval(interval);
+   interval=setInterval(()=>{
+     if(mode==='cool') temp=Math.max(24,temp-.15);
+     else temp=Math.min(34,temp+.15);
+     document.getElementById('z1').textContent=temp.toFixed(1)+'°C';
+     document.getElementById('z2').textContent=temp.toFixed(1)+'°C';
+     document.getElementById('returnT').textContent=temp.toFixed(1)+'°C';
+     document.getElementById('m5').textContent=temp.toFixed(1)+'°C';
+   },500);
+ }else clearInterval(interval);
+}
+function stepFlow(){
+ on=true; step=0; update();
+ const msg=[
+  '<b>STEP 1 — CENTRAL PLANT:</b> The chiller/boiler produces the conditioned medium required for the building.',
+  '<b>STEP 2 — PUMPING:</b> Pumps circulate the chilled/hot medium toward the AHU.',
+  '<b>STEP 3 — AHU:</b> The filter, coil and fan treat and circulate the air.',
+  '<b>STEP 4 — DISTRIBUTION:</b> Conditioned air travels through ducts and serves multiple zones.',
+  '<b>STEP 5 — RETURN AIR:</b> Air from the occupied zones returns to the AHU/system, completing the loop.'
+ ];
+ clearInterval(stepTimer);
+ stepTimer=setInterval(()=>{
+   document.getElementById('message').innerHTML=msg[step];
+   step++;
+   if(step>=msg.length) clearInterval(stepTimer);
+ },1300);
+}
+update();
+</script>
+</body>
+</html>
